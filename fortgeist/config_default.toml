@@ -1,0 +1,47 @@
+# Fortgeist settings. Open with `fortgeist config`. File: %USERPROFILE%\Fortgeist\config.toml
+
+[record]
+fps = 30                  # 20..60
+output_idx = 0            # monitor (0 = primary)
+architecture = "A"        # "A": dxcam -> pipe -> ffmpeg; "B": ffmpeg ddagrab (frames never leave the GPU)
+encoder = "hevc_nvenc"    # hevc_nvenc | av1_nvenc | h264_nvenc
+qp = 24                   # constant QP (lower = better quality and bigger files). Tuned with `fortgeist bench`
+preset = "p4"
+downscale = ""            # "" = native resolution, or "1920x1080" (scaled on the GPU)
+gop_seconds = 2.0         # keyframe every N seconds (fast seeking in the viewer)
+chunk_minutes = 10.0
+ring_slots = 8            # frames in the ring buffer (architecture A)
+data_dir = "sessions"     # relative to the folder of this file
+min_free_hours = 4.0      # warn if there is room for less than N hours of recording
+ffmpeg = "ffmpeg"
+ffprobe = "ffprobe"
+
+[focus]
+# Input and video are recorded ONLY while the foreground window belongs to one of these processes.
+process_whitelist = ["FortniteClient-Win64-Shipping.exe"]
+poll_ms = 250
+
+[hotkeys]                 # global; never written to inputs.parquet (see README)
+start_stop = "F9"
+marker = "F8"
+pause = "F10"
+
+[sound]
+enabled = true
+
+[player]
+# Player profile: required to convert mouse counts into camera degrees (stage 2).
+mouse_dpi = 800
+mouse_polling_hz = 1000
+windows_pointer_speed = 10        # 1..20 (does not affect Raw Input, but we record it)
+sens_x = 6.4                      # Fortnite: X-Axis Sensitivity, %
+sens_y = 6.4                      # Fortnite: Y-Axis Sensitivity, %
+targeting_sens = 45.0             # Targeting Sensitivity, %
+scope_sens = 45.0                 # Scope Sensitivity, %
+invert_y = false
+game_resolution = "2560x1440"
+window_mode = "windowed_fullscreen"  # fullscreen | windowed_fullscreen | windowed
+rendering_mode = "DirectX 12"
+frame_rate_limit = 0
+visualize_sound_effects = true
+keybinds_note = ""
