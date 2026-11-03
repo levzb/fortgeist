@@ -54,6 +54,13 @@ class SoundConfig:
 
 
 @dataclass
+class ShareConfig:
+    zip_after_stop: bool = True  # pack each finished session into one .zip, ready to send
+    dir: str = str(APP_HOME / "ready_to_send")  # where the zips go
+    open_folder: bool = True  # show the zip in Explorer (only when the game is not in focus)
+
+
+@dataclass
 class PlayerProfile:
     """Player profile: without it mouse counts cannot be converted into camera degrees."""
 
@@ -79,6 +86,7 @@ class Config:
     focus: FocusConfig = field(default_factory=FocusConfig)
     hotkeys: HotkeyConfig = field(default_factory=HotkeyConfig)
     sound: SoundConfig = field(default_factory=SoundConfig)
+    share: ShareConfig = field(default_factory=ShareConfig)
     player: PlayerProfile = field(default_factory=PlayerProfile)
 
     def to_dict(self) -> dict[str, Any]:
@@ -135,6 +143,10 @@ def load_config(path: str | Path | None = None) -> Config:
     if not dd.is_absolute():
         dd = p.resolve().parent / dd
     cfg.record.data_dir = str(dd)
+    sd = Path(cfg.share.dir).expanduser()
+    if not sd.is_absolute():
+        sd = p.resolve().parent / sd
+    cfg.share.dir = str(sd)
     validate(cfg)
     return cfg
 

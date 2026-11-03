@@ -29,6 +29,11 @@ pause = "F10"
 [sound]
 enabled = true
 
+[share]
+zip_after_stop = true     # after each recording, pack it into one .zip that is easy to send
+dir = "ready_to_send"     # relative to the folder of this file
+open_folder = true        # show the zip in Explorer (only when the game is not in focus)
+
 [player]
 # Player profile: required to convert mouse counts into camera degrees (stage 2).
 mouse_dpi = 800

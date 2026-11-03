@@ -53,7 +53,9 @@ def cmd_record(args) -> int:
     from . import shared as S
     from . import winapi as W
     from .encoder import check_requirements
+    from .focus import FocusMatcher
     from .session import Recorder, disk_free_bytes, disk_write_speed, finalize_session, find_unfinalized
+    from .share import Packer, reveal, unpacked_sessions
     from .status import Sounds, StatusData, render
 
     con = Console()
@@ -68,6 +70,28 @@ def cmd_record(args) -> int:
     for d in find_unfinalized(root):
         con.print(f"[yellow]Found unfinished session {d.name}, finalizing…[/]")
         finalize_session(d, rc.ffprobe, {"recovered_after_crash": True})
+    share_dir = Path(cfg.share.dir)
+    packer = Packer(share_dir, log=lambda m: con.print(f"[red]{m}[/]")) if cfg.share.zip_after_stop else None
+    if packer:
+        for d in unpacked_sessions(root, share_dir):
+            packer.add(d)
+    game = FocusMatcher(cfg.focus.process_whitelist)
+    to_reveal: list[Path] = []
+    last_reveal_check = 0.0
+
+    def collect_zips(out) -> None:
+        while packer and not packer.ready.empty():
+            z = packer.ready.get()
+            out.print(f"[bold green]✓ Ready to send:[/] {z}")
+            if cfg.share.open_folder:
+                to_reveal.append(z)
+
+    def reveal_if_not_in_game() -> None:
+        # never pop a window over the game: wait until the player has left it
+        if to_reveal and not game.check_foreground().ok:
+            reveal(to_reveal[-1])
+            to_reveal.clear()
+
     if "*" in cfg.focus.process_whitelist:
         con.print("[bold red]WARNING: focus.process_whitelist = '*': input is recorded in ANY window.[/]")
 
@@ -86,6 +110,8 @@ def cmd_record(args) -> int:
     con.print(f"Starting: architecture {rc.architecture}, {rc.encoder} qp{rc.qp}, {rc.fps} fps. "
               f"{cfg.hotkeys.start_stop}: start/stop, {cfg.hotkeys.marker}: marker, "
               f"{cfg.hotkeys.pause}: pause, Ctrl+C: exit.")
+    if packer:
+        con.print(f"Each finished recording is packed into one .zip in {share_dir}")
     rec.launch()
     if args.autostart:
         rec.start_session()
@@ -102,12 +128,19 @@ def cmd_record(args) -> int:
                         meta = rec.stop_session(t)
                         live.console.print(f"■ session {d.name}: {meta['stats']['frames']} frames, "
                                            f"{meta['stats']['input_events']} events, drop {meta['stats']['drop_pct']}%")
+                        if packer:
+                            packer.add(d)
+                            live.console.print(f"Packing it into a .zip in {share_dir} …")
                         if args.exit_after_stop:
                             return 0
                     else:
                         rec.handle_hotkey(action, t)
                 st = rec.state
                 now = time.monotonic()
+                collect_zips(live.console)
+                if now - last_reveal_check >= 1.0:
+                    last_reveal_check = now
+                    reveal_if_not_in_game()
                 if now - last_t >= 1.0:
                     ips = (st[S.INPUT_EVENTS] - last_inputs) / (now - last_t)
                     last_inputs, last_t = st[S.INPUT_EVENTS], now
@@ -127,11 +160,38 @@ def cmd_record(args) -> int:
                     markers=rec.n_markers, error=rec.last_error)))
                 if args.duration and rec.session_dir is not None and el >= args.duration:
                     rec.stop_session()
+                    if packer:
+                        packer.add(rec.last_finalized)
                     return 0
     except KeyboardInterrupt:
         con.print("Ctrl+C: finishing…")
     finally:
         rec.shutdown()
+        if packer:
+            if packer.busy:
+                con.print("Packing the last recording into a .zip, please wait…")
+            packer.close()
+            collect_zips(con)
+            reveal_if_not_in_game()
+    return 0
+
+
+def cmd_pack(args) -> int:
+    from .share import pack_session, reveal, unpacked_sessions
+
+    cfg = _cfg(args)
+    out = Path(cfg.share.dir)
+    todo = [_resolve_session(cfg, args.session)] if args.session else unpacked_sessions(Path(cfg.record.data_dir), out)
+    if not todo:
+        print(f"Nothing to pack. Zips are in {out}")
+        return 0
+    z = None
+    for d in todo:
+        print(f"packing {d.name} …")
+        z = pack_session(d, out)
+        print(f"Ready to send: {z}")
+    if z and not args.no_open:
+        reveal(z)
     return 0
 
 
@@ -251,11 +311,13 @@ def cmd_bench(args) -> int:
 def cmd_config(args) -> int:
     import os
 
-    from .config import APP_HOME, ensure_user_config
+    from .config import ensure_user_config, load_config
 
     p = ensure_user_config()
     print(f"Settings:   {p}")
-    print(f"Recordings: {APP_HOME / 'sessions'}")
+    cfg = load_config(p)
+    print(f"Recordings: {cfg.record.data_dir}")
+    print(f"To send:    {cfg.share.dir}")
     if not args.no_open:
         os.startfile(p)  # opens in Notepad / the default editor
     return 0
@@ -303,6 +365,10 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--fast", action="store_true", help="skip ffprobe")
     i.set_defaults(fn=cmd_info)
 
+    pk = sub.add_parser("pack", help="pack sessions into .zip files ready to send")
+    pk.add_argument("session", nargs="?", help="session folder or name (default: every session without a zip)")
+    pk.add_argument("--no-open", action="store_true", help="do not open Explorer")
+    pk.set_defaults(fn=cmd_pack)
     rp = sub.add_parser("repair", help="finalize sessions after a crash")
     rp.add_argument("session", nargs="?")
     rp.set_defaults(fn=cmd_repair)
