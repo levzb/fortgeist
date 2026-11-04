@@ -22,7 +22,8 @@ A **Fortgeist** shortcut will appear on your desktop.
 
 The script installs [uv](https://github.com/astral-sh/uv) (Python tool manager) and
 [FFmpeg](https://ffmpeg.org) (video encoder) if you don't have them, then installs Fortgeist from
-this repository. You can [read it here](install.ps1): it's 15 lines.
+this repository. If a download fails it tries a direct download instead, and the window stays open
+so you can read any error. You can [read the script here](install.ps1).
 
 ## How to record
 
