@@ -71,9 +71,10 @@ def cmd_record(args) -> int:
         con.print(f"[yellow]Found unfinished session {d.name}, finalizing…[/]")
         finalize_session(d, rc.ffprobe, {"recovered_after_crash": True})
     share_dir = Path(cfg.share.dir)
-    packer = Packer(share_dir, log=lambda m: con.print(f"[red]{m}[/]")) if cfg.share.zip_after_stop else None
+    packer = Packer(share_dir, log=lambda m: con.print(f"[red]{m}[/]"), small=cfg.share.small,
+                    ffmpeg=cfg.record.ffmpeg, ffprobe=cfg.record.ffprobe) if cfg.share.zip_after_stop else None
     if packer:
-        for d in unpacked_sessions(root, share_dir):
+        for d in unpacked_sessions(root, share_dir, cfg.share.small):
             packer.add(d)
     game = FocusMatcher(cfg.focus.process_whitelist)
     to_reveal: list[Path] = []
@@ -181,15 +182,17 @@ def cmd_pack(args) -> int:
 
     cfg = _cfg(args)
     out = Path(cfg.share.dir)
-    todo = [_resolve_session(cfg, args.session)] if args.session else unpacked_sessions(Path(cfg.record.data_dir), out)
+    small = cfg.share.small and not args.full
+    todo = ([_resolve_session(cfg, args.session)] if args.session
+            else unpacked_sessions(Path(cfg.record.data_dir), out, small))
     if not todo:
         print(f"Nothing to pack. Zips are in {out}")
         return 0
     z = None
     for d in todo:
         print(f"packing {d.name} …")
-        z = pack_session(d, out)
-        print(f"Ready to send: {z}")
+        z = pack_session(d, out, small, cfg.record.ffmpeg, cfg.record.ffprobe, log=print)
+        print(f"Ready to send: {z} ({z.stat().st_size / 1e6:.0f} MB)")
     if z and not args.no_open:
         reveal(z)
     return 0
@@ -368,6 +371,7 @@ def build_parser() -> argparse.ArgumentParser:
     pk = sub.add_parser("pack", help="pack sessions into .zip files ready to send")
     pk.add_argument("session", nargs="?", help="session folder or name (default: every session without a zip)")
     pk.add_argument("--no-open", action="store_true", help="do not open Explorer")
+    pk.add_argument("--full", action="store_true", help="keep full-resolution video (much bigger zip)")
     pk.set_defaults(fn=cmd_pack)
     rp = sub.add_parser("repair", help="finalize sessions after a crash")
     rp.add_argument("session", nargs="?")

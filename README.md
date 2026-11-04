@@ -36,13 +36,23 @@ so you can read any error. You can [read the script here](install.ps1).
 After you press **F9** to stop, Fortgeist packs the recording into one file:
 
 ```
-%USERPROFILE%\Fortgeist\ready_to_send\fortgeist_<date>_<time>.zip
+%USERPROFILE%\Fortgeisteady_to_sendortgeist_<date>_<time>_small.zip
 ```
 
 When you leave the game, the folder opens with that file selected. Upload the zip to Google Drive,
-Mega or Dropbox and share the link. Don't unpack or rename anything inside.
+Mega, Dropbox or Telegram and share the link. Don't unpack or rename anything inside.
 
-Video takes about **12 GB per hour** of play. Once you've sent a zip, you can delete it and its
+To keep uploads small, the video in the zip is shrunk 4x per side (the AI only looks at small
+frames anyway): about **0.7 GB per hour** of play instead of 12 GB. Packing takes about a minute
+per 10 minutes of play and runs in the background.
+
+Recorded before this feature, or the window was closed while packing? Open PowerShell and run:
+
+```
+fortgeist pack
+```
+
+It packs every recording that has no small zip yet. Once you've sent a zip, you can delete it and its
 folder in `%USERPROFILE%\Fortgeist\sessions`.
 
 ## What is recorded

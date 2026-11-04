@@ -58,6 +58,7 @@ class ShareConfig:
     zip_after_stop: bool = True  # pack each finished session into one .zip, ready to send
     dir: str = str(APP_HOME / "ready_to_send")  # where the zips go
     open_folder: bool = True  # show the zip in Explorer (only when the game is not in focus)
+    small: bool = True  # shrink video 4x per side before packing: many times smaller, enough for training
 
 
 @dataclass
